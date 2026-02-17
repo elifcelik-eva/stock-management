@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-cloud-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spring-cloud-gateway
+  template:
+    metadata:
+      labels:
+        app: spring-cloud-gateway
+    spec:
+      containers:
+        - name: spring-cloud-gateway
+          image: elifcelik49/stock-management-spring-cloud-gateway:latest
+          ports:
+            - containerPort: 8762
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: k8s
