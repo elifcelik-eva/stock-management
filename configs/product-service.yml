@@ -1,13 +1,5 @@
-spring:
-  application:
-    name: product-service
-  profiles:
-    active: localhost
 info:
   component: Product Service
-
-server:
-  port: 9788
 
 ---
 spring:
