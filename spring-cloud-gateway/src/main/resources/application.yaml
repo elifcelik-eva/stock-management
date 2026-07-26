@@ -5,57 +5,6 @@ spring:
     import: "optional:configserver:http://config-server:8888"
   profiles:
     active: localhost
-info:
-  component: Spring Cloud Gateway
 
 server:
   port: 8762
-
----
-spring:
-  config:
-    activate:
-      on-profile: localhost
-  cloud:
-    gateway:
-      routes:
-        - id: product-service
-          uri: http://localhost:9788
-          predicates:
-            - Path=/api/1.0/product/**
-logging:
-  level:
-    root: debug
-
----
-spring:
-  config:
-    activate:
-      on-profile: stage
-  cloud:
-    gateway:
-      routes:
-        - id: product-service
-          uri: http://product-service:9788
-          predicates:
-            - Path=/api/1.0/product/**
-logging:
-  level:
-    root: debug
-
----
-spring:
-  config:
-    activate:
-      on-profile: k8s
-  cloud:
-    gateway:
-      routes:
-        - id: product-service
-          uri: http://product-service:9788
-          predicates:
-            - Path=/api/1.0/product/**
-
-logging:
-  level:
-    root: info
