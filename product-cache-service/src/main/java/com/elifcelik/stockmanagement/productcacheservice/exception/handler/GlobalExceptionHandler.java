@@ -1,0 +1,77 @@
+package com.elifcelik.stockmanagement.productcacheservice.exception.handler;
+
+import com.elifcelik.stockmanagement.productcacheservice.exception.enums.FriendlyMessageCodes;
+import com.elifcelik.stockmanagement.productcacheservice.exception.exceptions.ProductAlreadyDeletedException;
+import com.elifcelik.stockmanagement.productcacheservice.exception.exceptions.ProductNotCreateException;
+import com.elifcelik.stockmanagement.productcacheservice.exception.exceptions.ProductNotFoundException;
+import com.elifcelik.stockmanagement.productcacheservice.exception.exceptions.ProductServiceUnavailableException;
+import com.elifcelik.stockmanagement.productcacheservice.exception.utils.FriendlyMessageUtils;
+import com.elifcelik.stockmanagement.productcacheservice.response.FriendlyMessage;
+import com.elifcelik.stockmanagement.productcacheservice.response.InternalApiResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.Collections;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler(ProductNotCreateException.class)
+    public InternalApiResponse<String> handleProductNotCreatedException(ProductNotCreateException exception){
+        return InternalApiResponse.<String>builder()
+                .message(FriendlyMessage.builder()
+                        .title(FriendlyMessageUtils.getFriendlyMessage(exception.getLanguage(), FriendlyMessageCodes.ERROR))
+                        .description(FriendlyMessageUtils.getFriendlyMessage(exception.getLanguage(), exception.getFriendlyMessageCode()))
+                         .build())
+                .httpStatus(HttpStatus.BAD_REQUEST)
+                .hasError(true)
+                .errorMessages(Collections.singletonList(exception.getMessage()))
+                .build();
+    }
+
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    @ExceptionHandler(ProductNotFoundException.class)
+    public InternalApiResponse<String> handleProductNotFoundException(ProductNotFoundException exception){
+        return InternalApiResponse.<String>builder()
+                .message(FriendlyMessage.builder()
+                        .title(FriendlyMessageUtils.getFriendlyMessage(exception.getLanguage(), FriendlyMessageCodes.ERROR))
+                        .description(FriendlyMessageUtils.getFriendlyMessage(exception.getLanguage(), exception.getFriendlyMessageCode()))
+                        .build())
+                .httpStatus(HttpStatus.NOT_FOUND)
+                .hasError(true)
+                .errorMessages(Collections.singletonList(exception.getMessage()))
+                .build();
+    }
+
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler(ProductAlreadyDeletedException.class)
+    public InternalApiResponse<String> handleProductAlreadyDeletedException(ProductAlreadyDeletedException exception){
+        return InternalApiResponse.<String>builder()
+                .message(FriendlyMessage.builder()
+                        .title(FriendlyMessageUtils.getFriendlyMessage(exception.getLanguage(), FriendlyMessageCodes.ERROR))
+                        .description(FriendlyMessageUtils.getFriendlyMessage(exception.getLanguage(), exception.getFriendlyMessageCode()))
+                        .build())
+                .httpStatus(HttpStatus.BAD_REQUEST)
+                .hasError(true)
+                .errorMessages(Collections.singletonList(exception.getMessage()))
+                .build();
+    }
+
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    @ExceptionHandler(ProductServiceUnavailableException.class)
+    public InternalApiResponse<String> handleProductServiceUnavailableException(
+            ProductServiceUnavailableException exception) {
+        return InternalApiResponse.<String>builder()
+                .message(FriendlyMessage.builder()
+                        .title(FriendlyMessageUtils.getFriendlyMessage(exception.getLanguage(), FriendlyMessageCodes.ERROR))
+                        .description(FriendlyMessageUtils.getFriendlyMessage(exception.getLanguage(), exception.getFriendlyMessageCode()))
+                        .build())
+                .httpStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                .hasError(true)
+                .errorMessages(Collections.singletonList(exception.getMessage()))
+                .build();
+    }
+}
