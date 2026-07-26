@@ -1,5 +1,7 @@
 FROM eclipse-temurin:21-jre-alpine
 
+RUN apk add --no-cache curl
+
 ARG JAR_FILE=target/*.jar
 
 WORKDIR /opt/app
