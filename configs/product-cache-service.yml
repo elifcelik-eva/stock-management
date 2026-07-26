@@ -1,19 +1,11 @@
 spring:
   application:
     name: product-cache-service
-  profiles:
-    active: localhost
-
-  main:
-    allow-bean-definition-overriding: true
-info:
-  component: Product Cache Service
-
-logging:
-  level:
-    root: debug
-server:
-  port: 9791
+  cloud:
+    config:
+      fail-fast: true
+      retry:
+        max-attempts: 5
 
 ---
 spring:
@@ -27,7 +19,6 @@ spring:
       host: localhost
       port: 6379
       password: ${REDIS_PASSWORD}
-
   cloud:
     openfeign:
       client:
@@ -47,7 +38,6 @@ spring:
       host: redis
       port: 6379
       password: ${REDIS_PASSWORD}
-
   cloud:
     openfeign:
       client:
