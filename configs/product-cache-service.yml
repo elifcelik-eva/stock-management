@@ -1,6 +1,5 @@
-spring:
-  application:
-    name: product-cache-service
+info:
+  component: Product Cache Service
   cloud:
     config:
       fail-fast: true

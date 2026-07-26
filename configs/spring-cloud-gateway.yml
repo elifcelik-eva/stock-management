@@ -1,13 +1,5 @@
-spring:
-  application:
-    name: spring-cloud-gateway
-  profiles:
-    active: localhost
 info:
   component: Spring Cloud Gateway
-
-server:
-  port: 8762
 
 ---
 spring:
