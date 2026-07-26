@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-script
+data:
+  init.sql: |
+    CREATE SCHEMA IF NOT EXISTS stock_management;
+    GRANT ALL ON SCHEMA stock_management TO postgres;

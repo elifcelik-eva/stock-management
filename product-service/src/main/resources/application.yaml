@@ -1,0 +1,89 @@
+﻿spring:
+  application:
+    name: product-service
+  profiles:
+    active: localhost
+info:
+  component: Product Service
+
+server:
+  port: 9788
+
+---
+spring:
+  config:
+    activate:
+      on-profile: localhost
+  datasource:
+    url: "jdbc:postgresql://localhost:5433/stock_management"
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      connection-timeout: 20000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: stock_management
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+logging:
+  level:
+    root: info
+    com.elifcelik.stockmanagement: debug
+
+---
+spring:
+  config:
+    activate:
+      on-profile: stage
+  datasource:
+    url: "jdbc:postgresql://postgres:5432/stock_management"
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: stock_management
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+logging:
+  level:
+    root: warn
+
+---
+spring:
+  config:
+    activate:
+      on-profile: k8s
+  datasource:
+    url: "jdbc:postgresql://postgres:5432/stock_management"
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 10
+      connection-timeout: 30000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: stock_management
+logging:
+  level:
+    root: info
