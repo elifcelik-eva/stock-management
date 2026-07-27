@@ -93,6 +93,7 @@ services:
       - "SPRING_PROFILES_ACTIVE=stage"
       - "DB_USERNAME=${DB_USERNAME}"
       - "DB_PASSWORD=${DB_PASSWORD}"
+      - "CONFIG_SERVER_URL=${CONFIG_SERVER_URL}"
     logging:
       driver: "json-file"
       options:
