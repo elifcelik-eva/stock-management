@@ -2,8 +2,9 @@ package com.elifcelik.stockmanagement.productservice.service.impl;
 
 import com.elifcelik.stockmanagement.productservice.enums.Language;
 import com.elifcelik.stockmanagement.productservice.exception.exceptions.ProductNotFoundException;
-import com.elifcelik.stockmanagement.productservice.repository.entity.Product;
-import com.elifcelik.stockmanagement.productservice.repository.entity.ProductRepository;
+import com.elifcelik.stockmanagement.productservice.entity.Product;
+import com.elifcelik.stockmanagement.productservice.repository.ProductRepository;
+import com.elifcelik.stockmanagement.productservice.response.ProductResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,7 +40,7 @@ public class ProductServiceImplTest {
     void shouldReturnProduct_whenProductExists(){
         when(productRepository.getByProductIdAndDeletedFalse(1L))
                 .thenReturn(product);
-        Product result = productService.getProduct(language,1L);
+        ProductResponse result = productService.getProduct(language,1L);
         assertNotNull(result);
         assertEquals("Laptop", result.getProductName());
     }

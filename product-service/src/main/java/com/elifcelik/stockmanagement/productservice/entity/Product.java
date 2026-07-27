@@ -1,4 +1,4 @@
-package com.elifcelik.stockmanagement.productservice.repository.entity;
+package com.elifcelik.stockmanagement.productservice.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
