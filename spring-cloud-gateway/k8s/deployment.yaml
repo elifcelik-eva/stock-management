@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: spring-cloud-gateway
-          image: elifcelik49/stock-management-spring-cloud-gateway:latest
+          image: elifcelik49/sm-spring-cloud-gateway:latest
           ports:
             - containerPort: 8762
           env:
