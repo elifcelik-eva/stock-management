@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-cache-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product-cache-service
+  template:
+    metadata:
+      labels:
+        app: product-cache-service
+    spec:
+      containers:
+        - name: product-cache-service
+          image: elifcelik49/sm-product-cache-service:latest
+          ports:
+            - containerPort: 9791
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: k8s
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: password
