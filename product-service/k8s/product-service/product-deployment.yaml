@@ -14,12 +14,14 @@ spec:
     spec:
       containers:
         - name: product-service
-          image: elifcelik49/stock-management-product-service:latest
+          image: elifcelik49/sm-product-service:latest
           ports:
             - containerPort: 9788
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: k8s
+            - name: CONFIG_SERVER_URL
+              value: http://config-server:8888
             - name: DB_USERNAME
               valueFrom:
                 secretKeyRef:
