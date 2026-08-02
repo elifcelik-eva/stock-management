@@ -41,3 +41,18 @@ spring:
 logging:
   level:
     root: debug
+
+---
+spring:
+  config:
+    activate:
+      on-profile: k8s
+  cloud:
+    config:
+      server:
+        git:
+          username: ${GITHUB_USERNAME}
+          password: ${GITHUB_TOKEN}
+logging:
+  level:
+    root: info
