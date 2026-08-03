@@ -2,15 +2,15 @@
 
 [For English README click here](README.md)
 
-[Stock Management System](../README.tr.md) projesinin bir parçasıdır. Bu servis, uzak bir Git deposundan diğer tüm servislere (`product-service`, `product-cache-service`, `spring-cloud-gateway`) merkezi konfigürasyon sunan bir **Spring Cloud Config Server**'dır.
+[Stock Management System](../README.md) projesinin bir parçasıdır. Bu, diğer tüm servislere (`product-service`, `product-cache-service`, `spring-cloud-gateway`) private, uzak bir Git deposu üzerinden merkezi konfigürasyon sunan bir **Spring Cloud Config Server**'dır.
 
 ## Sorumluluklar
 
-- Diğer servislerin, her ortam için ayrı `application.yml` dosyası taşımak yerine ayarlarını açılışta HTTP üzerinden çekebilmesi için konfigürasyon dosyalarını sunar.
-- Bir Git deposu (`stock-management-configs`) üzerinden beslenir; `clone-on-start` ve `force-pull` ayarları sayesinde her zaman en güncel commit edilmiş konfigürasyonu sunar.
-- Birden fazla ortam profilini destekler: `localhost`, `stage` (ve bu servisi tüketen diğer servisler için `k8s`).
+- Her ortam için ayrı `application.yml` paketlemek yerine, konfigürasyon dosyalarını HTTP üzerinden sunar; diğer servisler ayarlarını açılışta buradan çeker.
+- Private bir Git deposu (`stock-management-configs`) tarafından beslenir; `clone-on-start` ve `force-pull` ayarları sayesinde her zaman en güncel commit edilmiş konfigürasyonu sunar.
+- Üç ortam profilini destekler: `localhost`, `stage` ve `k8s` — her biri kendi Git kimlik doğrulama bloğuna sahip.
 
-## Teknoloji Yığını
+## Kullanılan Teknolojiler
 
 - Java 21
 - Spring Boot 3.5.11
@@ -18,7 +18,7 @@
 
 ## Konfigürasyon
 
-Servisin kendi `application.yaml` dosyası, paylaşılan konfigürasyon dosyalarının bulunduğu Git deposunu işaret eder:
+Servisin kendi `application.yaml`'ı, paylaşılan konfigürasyon dosyalarını barındıran Git deposunu işaret eder:
 
 ```yaml
 spring:
@@ -34,12 +34,14 @@ spring:
           force-pull: true
 ```
 
-`localhost` ve `stage` profilleri için Git kimlik doğrulama bilgileri ortam değişkenlerinden okunur:
+Her profil için (`localhost`, `stage`, `k8s`), Git kimlik bilgileri environment variable'lardan okunur:
 
 | Değişken | Açıklama |
 |---|---|
-| `GITHUB_USERNAME` | Konfigürasyon Git deposuna kimlik doğrulamak için kullanılan kullanıcı adı |
-| `GITHUB_TOKEN` | Konfigürasyon Git deposuna kimlik doğrulamak için kullanılan personal access token |
+| `GITHUB_USERNAME` | Config Git deposuna karşı kimlik doğrulamada kullanılan kullanıcı adı |
+| `GITHUB_TOKEN` | Config Git deposuna karşı kimlik doğrulamada kullanılan personal access token |
+
+`stock-management-configs` reposu **private** olduğu için, her iki değişken de Kubernetes dahil her ortamda set edilmelidir — anonim bir fallback yoktur.
 
 ## Çalıştırma
 
@@ -74,12 +76,21 @@ GET http://localhost:8888/actuator/health
 |---|---|
 | Varsayılan | `8888` |
 
-## Tüketiciler
+## Kullanan Servisler
 
-Projedeki diğer tüm servisler, açılışta konfigürasyonlarını bu sunucudan import eder, örneğin:
+Bu projedeki her servis, açılışta konfigürasyonunu bu sunucudan import eder, örn.:
 
 ```yaml
 spring:
   config:
     import: "optional:configserver:http://config-server:8888"
 ```
+
+## Kubernetes
+
+Manifestler [`k8s/`](k8s) altında bulunur:
+
+- `deployment.yaml` — Bu servis için Deployment. Image: `elifcelik49/sm-config-server:latest`. `SPRING_PROFILES_ACTIVE` değeri `k8s` olarak set edilir; `GITHUB_USERNAME`/`GITHUB_TOKEN` bir `github-secret` Secret'ından enjekte edilir (`kubectl create secret generic github-secret --from-literal=username=<kullanici> --from-literal=token=<pat>`).
+- `service.yaml` — `config-server` adında bir `ClusterIP` Service, `8888` portunu açar. Servis adı tam olarak bu olmalı, çünkü diğer tüm servisler config server'ı Kubernetes DNS üzerinden, hardcoded/config-import edilmiş `http://config-server:8888` URL'i ile çözümlüyor.
+
+Git PAT'ının, private `stock-management-configs` reposuna en azından okuma erişimi (classic token'lar için `repo` scope'u) olmalıdır.
