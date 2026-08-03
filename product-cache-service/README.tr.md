@@ -2,18 +2,18 @@
 
 [For English README click here](README.md)
 
-[Stock Management System](../README.tr.md) projesinin bir parçasıdır. Bu servis, `product-service`'in önünde yer alır ve tekrar eden okuma işlemlerinde veritabanına giden yükü azaltmak için Redis destekli bir ürün önbelleği sağlar.
+[Stock Management System](../README.md) projesinin bir parçasıdır. Bu servis, `product-service`'in önünde durur ve tekrarlanan sorgularda ana veritabanı servisinin yükünü azaltmak için Redis destekli bir önbellekleme katmanı sağlar.
 
 ## Sorumluluklar
 
-- Henüz önbellekte olmayan ürün verilerini, bir **Feign client** (`ProductServiceFeignClient`) üzerinden `product-service`'ten çeker.
-- Ürünleri **Redis**'te önbellekler ve sonraki okumaları önbellekten sunar.
-- Dile göre önbellekteki ürünleri temizlemek/tahliye etmek için bir endpoint sunar.
-- Sistemin genelinde kullanılan yerelleştirilmiş (`EN`/`TR`), tutarlı yanıt zarfı stilini kullanır.
-- `product-service`'e ulaşılamadığı durumları özel bir `ProductServiceUnavailableException` ile ele alır.
-- Açılışta konfigürasyonunu, `fail-fast` ve retry mekanizması etkin olacak şekilde `config-server`'dan çeker.
+- Önbellekte yoksa, ürün verisini **Feign client** (`ProductServiceFeignClient`) üzerinden `product-service`'ten çeker.
+- Ürünleri **Redis**'te önbelleğe alır ve sonraki okumaları önbellekten sunar.
+- Dile göre önbellekteki ürünleri temizleyen/tahliye eden bir endpoint sunar.
+- Sistemin geri kalanında kullanılan aynı lokalize (`EN`/`TR`), tutarlı response zarfı biçimini döner.
+- `product-service`'e ulaşılamama durumunu özel bir `ProductServiceUnavailableException` ile yönetir.
+- Açılışta konfigürasyonunu `config-server`'dan çeker; `fail-fast` ve retry etkindir.
 
-## Teknoloji Yığını
+## Kullanılan Teknolojiler
 
 - Java 21
 - Spring Boot 3.2.5
@@ -24,29 +24,29 @@
 
 ## API
 
-Ana yol (base path): `/api/1.0/product-cache`
+Temel path: `/api/1.0/product-cache`
 
-| Metod | Yol | Açıklama |
+| Metod | Path | Açıklama |
 |---|---|---|
-| `GET` | `/{language}/products/{productId}` | ID'ye göre ürün getirir — Redis önbelleğinden sunulur, önbellekte yoksa `product-service`'e düşer |
-| `DELETE` | `/{language}/products` | Önbellekteki tüm ürünleri tahliye eder |
+| `GET` | `/{language}/products/{productId}` | Ürünü id ile getirir — Redis önbelleğinden sunulur, cache miss durumunda `product-service`'e düşer |
+| `DELETE` | `/{language}/products` | Önbellekteki tüm ürünleri temizler |
 
-### Örnek: önbellekteki bir ürünü getirme
+### Örnek: önbellekten bir ürün getirme
 
 ```bash
-curl http://localhost:9791/api/1.0/product-cache/tr/products/1
+curl http://localhost:9791/api/1.0/product-cache/EN/products/1
 ```
 
 ## Nasıl Çalışır
 
-1. ID'ye göre bir ürün isteği gelir.
-2. `ProductService`, Redis'te önbelleklenmiş bir kayıt olup olmadığını kontrol eder.
-3. Önbellekte bulunmazsa (cache miss), `product-service`'i `ProductServiceFeignClient` üzerinden çağırır (mantıksal ad olarak `product-service` altında kayıtlıdır, gerçek URL'i her ortam için config server üzerinden çözümlenir).
-4. Sonuç map'lenir ve sonraki istekler için Redis'e kaydedilir.
+1. Bir ürün için id bazlı bir istek gelir.
+2. `ProductService`, Redis'te önbelleğe alınmış bir kayıt olup olmadığını kontrol eder.
+3. Cache miss durumunda, `ProductServiceFeignClient` üzerinden `product-service`'i çağırır (mantıksal isim `product-service` olarak kayıtlıdır, gerçek URL'e her ortamda config server aracılığıyla çözümlenir).
+4. Sonuç map'lenip sonraki istekler için Redis'e kaydedilir.
 
 ```
-İstemci → Product Cache Service → Redis (var mı?)
-                                └─(yok)→ product-service (Feign) → Redis (kaydet)
+İstemci → Product Cache Service → Redis (hit?) 
+                              └─(miss)→ product-service (Feign) → Redis (kaydet)
 ```
 
 ## Konfigürasyon
@@ -71,28 +71,48 @@ Redis bağlantısı ve `product-service` için Feign hedef URL'i, config server 
 
 | Değişken | Açıklama |
 |---|---|
-| `REDIS_PASSWORD` | Redis örneği için şifre |
+| `REDIS_PASSWORD` | Redis instance'ının şifresi |
 
 | Profil | Redis host | `product-service` Feign URL |
 |---|---|---|
 | `localhost` | `localhost:6379` | `http://localhost:9788` |
 | `stage` | `redis:6379` | `http://product-service:9788` |
+| `k8s` | `redis:6379` | `http://product-service:9788` |
 
 ## Çalıştırma
 
 ### Docker Compose ile (önerilen)
-[Root README](../README.tr.md)'ye bakın. Bu servis, önce Redis, `product-service` ve `config-server`'ın sağlıklı (healthy) olmasına bağımlıdır.
+[Root README](../README.md)'e bakın. Bu servis, önce Redis, `product-service` ve `config-server`'ın sağlıklı (healthy) olmasına bağımlıdır.
 
-### Tek başına (Maven, localhost profili)
+### Bağımsız (Maven, localhost profili)
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-Yerel bir Redis örneği, erişilebilir bir `product-service` ve çalışan bir config server gerektirir.
+Yerel bir Redis instance'ı, erişilebilir bir `product-service` ve çalışan bir config server gerektirir.
 
 ## Port
 
 | Ortam | Port |
 |---|---|
 | Varsayılan | `9791` |
+
+## Kubernetes
+
+Manifestler [`k8s/`](k8s) altında bulunur:
+
+- `product-cache-service/deployment.yaml`, `product-cache-service/service.yaml` — Bu uygulama için Deployment ve Service. Image: `elifcelik49/sm-product-cache-service:latest`. Gerekli environment variable'lar:
+    - `SPRING_PROFILES_ACTIVE=k8s`
+    - `REDIS_PASSWORD` — `redis-secret` Secret'ından enjekte edilir
+- `redis/redis-deployment.yaml`, `redis/redis-service.yaml` — Bir `redis:7` Deployment'ı (şifre, `command` alanında Kubernetes'in kendi `$(VAR)` substitution mekanizmasıyla — shell expansion değil — `redis-server --requirepass $(REDIS_PASSWORD)` şeklinde set edilir) ve `k8s` config profilinde beklenen `data.redis.host: redis` değeriyle eşleşen, `redis` adında bir `ClusterIP` Service.
+
+```bash
+kubectl create secret generic redis-secret \
+  --from-literal=password=redis123
+
+kubectl apply -f k8s/redis/
+kubectl apply -f k8s/product-cache-service/
+```
+
+Bu servise [gateway](../spring-cloud-gateway) üzerinden erişebilmek için `/api/1.0/product-cache/**` route'unun tanımlı olması gerektiğini unutmayın — detaylar için gateway'in README dosyasına bakın.

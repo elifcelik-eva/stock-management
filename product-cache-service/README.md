@@ -34,7 +34,7 @@ Base path: `/api/1.0/product-cache`
 ### Example: get a cached product
 
 ```bash
-curl http://localhost:9791/api/1.0/product-cache/en/products/1
+curl http://localhost:9791/api/1.0/product-cache/EN/products/1
 ```
 
 ## How It Works
@@ -77,6 +77,7 @@ Redis connection and the Feign target URL for `product-service` are provided per
 |---|---|---|
 | `localhost` | `localhost:6379` | `http://localhost:9788` |
 | `stage` | `redis:6379` | `http://product-service:9788` |
+| `k8s` | `redis:6379` | `http://product-service:9788` |
 
 ## Running
 
@@ -96,3 +97,22 @@ Requires a local Redis instance, a reachable `product-service`, and a running co
 | Environment | Port |
 |---|---|
 | Default | `9791` |
+
+## Kubernetes
+
+Manifests are provided under [`k8s/`](k8s):
+
+- `product-cache-service/deployment.yaml`, `product-cache-service/service.yaml` — Deployment and Service for this application. Image: `elifcelik49/sm-product-cache-service:latest`. Required environment variables:
+    - `SPRING_PROFILES_ACTIVE=k8s`
+    - `REDIS_PASSWORD` — injected from the `redis-secret` Secret
+- `redis/redis-deployment.yaml`, `redis/redis-service.yaml` — a `redis:7` Deployment (password set via `redis-server --requirepass $(REDIS_PASSWORD)`, using Kubernetes' own `$(VAR)` substitution in `command`, not shell expansion) and a `ClusterIP` Service named `redis`, matching the `data.redis.host: redis` value expected in the `k8s` config profile.
+
+```bash
+kubectl create secret generic redis-secret \
+  --from-literal=password=redis123
+
+kubectl apply -f k8s/redis/
+kubectl apply -f k8s/product-cache-service/
+```
+
+Note that reaching this service through the [gateway](../spring-cloud-gateway) requires the `/api/1.0/product-cache/**` route to exist — see the gateway's README for details.
