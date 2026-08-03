@@ -2,16 +2,16 @@
 
 [For English README click here](README.md)
 
-[Stock Management System](../README.tr.md) projesinin bir parçasıdır. Bu, sistemin API gateway'idir: dış istekleri iç servis olan `product-service`'e yönlendiren tek giriş noktasıdır.
+[Stock Management System](../README.md) projesinin bir parçasıdır. Bu, sistemin API gateway'i: dış istekleri iç servisler olan `product-service` ve `product-cache-service`'e yönlendiren tek giriş noktası.
 
 ## Sorumluluklar
 
-- `/api/1.0/product/**` ile eşleşen gelen HTTP isteklerini `product-service`'e yönlendirir.
-- Sistemin dış yüzünü merkezileştirir; böylece istemcilerin yalnızca tek bir adresi bilmesi yeterlidir.
-- Açılışta yönlendirme (routing) konfigürasyonunu `config-server`'dan çeker; bu sayede route'lar, gateway yeniden deploy edilmeden ortama göre değiştirilebilir.
+- `/api/1.0/product/**` ile eşleşen gelen HTTP isteklerini `product-service`'e, `/api/1.0/product-cache/**` ile eşleşenleri ise `product-cache-service`'e yönlendirir.
+- Sistemin dış ucunu merkezileştirir; istemcilerin sadece tek bir adresi bilmesi yeterlidir.
+- Açılışta routing konfigürasyonunu `config-server`'dan çeker — bu sayede route'lar, gateway'i yeniden deploy etmeden ortama göre değiştirilebilir.
 - Docker/Kubernetes tarafından kullanılan bir actuator health endpoint'i sunar.
 
-## Teknoloji Yığını
+## Kullanılan Teknolojiler
 
 - Java 21
 - Spring Boot 3.2.5
@@ -19,24 +19,32 @@
 - Spring Cloud Config Client
 - Spring Boot Actuator
 
-## Yönlendirme (Routing)
+## Routing
 
-Route'lar, paylaşılan konfigürasyonda (`config-server` tarafından sunulur) Spring profili bazında tanımlanır:
+Route'lar, paylaşılan konfigürasyonda (config-server tarafından sunulan) her Spring profili için ayrı ayrı tanımlıdır:
 
 | Profil | Route id | Predicate | Hedef URI |
 |---|---|---|---|
 | `localhost` | `product-service` | `Path=/api/1.0/product/**` | `http://localhost:9788` |
+| `localhost` | `product-cache-service` | `Path=/api/1.0/product-cache/**` | `http://localhost:9791` |
 | `stage` | `product-service` | `Path=/api/1.0/product/**` | `http://product-service:9788` |
+| `stage` | `product-cache-service` | `Path=/api/1.0/product-cache/**` | `http://product-cache-service:9791` |
 | `k8s` | `product-service` | `Path=/api/1.0/product/**` | `http://product-service:9788` |
+| `k8s` | `product-cache-service` | `Path=/api/1.0/product-cache/**` | `http://product-cache-service:9791` |
+
+Route `id`'leri benzersiz olmalıdır; Spring Cloud Gateway route'ları sırayla değerlendirir ve predicate'i ilk eşleşene yönlendirir.
 
 ### Örnek
 
 ```bash
-# Gateway üzerinden
-curl http://localhost:8762/api/1.0/product/tr/products
+# Gateway üzerinden → product-service
+curl http://localhost:8762/api/1.0/product/EN/products
 
-# product-service'e doğrudan eşdeğer çağrı
-curl http://localhost:9788/api/1.0/product/tr/products
+# Gateway üzerinden → product-cache-service
+curl http://localhost:8762/api/1.0/product-cache/EN/products/1
+
+# product-service'e eşdeğer doğrudan çağrı
+curl http://localhost:9788/api/1.0/product/EN/products
 ```
 
 ## Konfigürasyon
@@ -56,15 +64,15 @@ server:
 ## Çalıştırma
 
 ### Docker Compose ile (önerilen)
-[Root README](../README.tr.md)'ye bakın. Bu servis, `product-service` ve `config-server` sağlıklı (healthy) hale geldikten sonra başlar.
+[Root README](../README.md)'e bakın. Bu servis, `product-service` ve `config-server` sağlıklı olduktan sonra başlar.
 
-### Tek başına (Maven, localhost profili)
+### Bağımsız (Maven, localhost profili)
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-Erişilebilir bir `product-service` ve çalışan bir config server gerektirir.
+Erişilebilir bir `product-service` (cache route'unu test ediyorsan `product-cache-service` de) ve çalışan bir config server gerektirir.
 
 ## Port
 
@@ -74,4 +82,16 @@ Erişilebilir bir `product-service` ve çalışan bir config server gerektirir.
 
 ## Kubernetes
 
-[`k8s/`](k8s) altında, `k8s` Spring profili için tasarlanmış, bu uygulama için Deployment ve Service içeren manifest'ler bulunur.
+Manifestler [`k8s/`](k8s) altında bulunur:
+
+- `deployment.yaml` — Bu servis için Deployment. Image: `elifcelik49/sm-gateway:latest`. `SPRING_PROFILES_ACTIVE=k8s`.
+- `service.yaml` — Cluster dışına açılan tek giriş noktası olan `NodePort` tipinde bir Service (`8762` portu, `nodePort: 30007`). Minikube'da erişilebilir bir URL almak için:
+
+```bash
+minikube service spring-cloud-gateway --url
+```
+
+```bash
+curl http://<minikube-url>/api/1.0/product/EN/products
+curl http://<minikube-url>/api/1.0/product-cache/EN/products/1
+```
