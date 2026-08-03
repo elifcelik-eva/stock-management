@@ -1,5 +1,7 @@
 info:
   component: Product Cache Service
+
+spring:
   cloud:
     config:
       fail-fast: true
