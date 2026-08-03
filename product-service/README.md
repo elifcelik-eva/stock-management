@@ -2,14 +2,14 @@
 
 [Türkçe README için tıklayın](README.tr.md)
 
-Part of the [Stock Management System](../README.md). This is the core service of the system: it owns the `Product` domain and exposes a REST API to create, read, update, and delete products, backed by PostgreSQL.
+Part of the [Stock Management System](../README.md). This is the core service of the system: it owns the `Product` domain and exposes a REST API to create, read, update, and delete products, backed by PostgreSQL with a **Flyway-managed schema**.
 
 ## Responsibilities
 
 - Full CRUD for products (create, get single, get all, update, soft delete).
 - Localized (multi-language) success/error messages — `EN` and `TR` — returned in every response via a `language` path variable.
 - Consistent response envelope (`InternalApiResponse`) with a `payload`, an optional friendly `message`, and an `hasError` flag.
-- Persists data in PostgreSQL under the `stock_management` schema.
+- Persists data in PostgreSQL under the `stock_management` schema, with the schema itself version-controlled via **Flyway** migrations rather than Hibernate auto-DDL.
 - Fetches its configuration from the `config-server` at startup.
 - Exposes Swagger/OpenAPI documentation and an actuator health endpoint (used for Docker/Kubernetes readiness).
 
@@ -19,6 +19,7 @@ Part of the [Stock Management System](../README.md). This is the core service of
 - Spring Boot 3.2.5
 - Spring Web, Spring Data JPA, Spring Cloud Config Client
 - PostgreSQL (runtime), H2 (tests)
+- **Flyway** (`flyway-core`) — schema migrations
 - springdoc-openapi (Swagger UI)
 - Lombok
 - JUnit 5 / Spring Boot Test / Spring Security Test
@@ -37,11 +38,38 @@ Part of the [Stock Management System](../README.md). This is the core service of
 | `productUpdatedDate` | `LocalDateTime` | Set automatically on create/update |
 | `deleted` | `boolean` | Soft-delete flag |
 
+## Schema Management (Flyway)
+
+Every profile (`localhost`, `stage`, `k8s`) runs Hibernate with:
+
+```yaml
+jpa:
+  hibernate:
+    ddl-auto: validate
+```
+
+Hibernate never creates or alters tables — it only validates that the entity mapping matches what's already in the database. The actual table is created by a versioned migration script:
+
+```
+product-service/src/main/resources/db/migration/V1__create_product_table.sql
+```
+
+Flyway runs automatically on application startup, tracks applied migrations in a `flyway_schema_history` table, and applies each `V<n>__description.sql` file exactly once. The target schema is configured centrally (served by the config server):
+
+```yaml
+spring:
+  flyway:
+    schemas: stock_management
+    default-schema: stock_management
+```
+
+Adding a new column or table later means adding a new file (e.g. `V2__add_column.sql`) — existing migration files should never be edited after being applied, since Flyway checksums them.
+
 ## API
 
 Base path: `/api/1.0/product`
 
-All endpoints require a `{language}` path variable — `en` or `tr` — used to localize response messages.
+All endpoints require a `{language}` path variable — `EN` or `TR` — used to localize response messages.
 
 | Method | Path | Description |
 |---|---|---|
@@ -54,7 +82,7 @@ All endpoints require a `{language}` path variable — `en` or `tr` — used to 
 ### Example: create a product
 
 ```bash
-curl -X POST http://localhost:9788/api/1.0/product/en/products \
+curl -X POST http://localhost:9788/api/1.0/product/EN/products \
   -H "Content-Type: application/json" \
   -d '{
         "productName": "Wireless Mouse",
@@ -108,7 +136,7 @@ Datasource settings (username/password/URL, connection pool sizes) are provided 
 |---|---|
 | `DB_USERNAME` | PostgreSQL username |
 | `DB_PASSWORD` | PostgreSQL password |
-| `CONFIG_SERVER_URL` | URL of the config server |
+| `CONFIG_SERVER_URL` | URL of the config server. Defaults to `http://localhost:8888`, so it **must** be overridden in any environment where the config server isn't reachable at localhost (e.g. Kubernetes: `http://config-server:8888`) |
 
 ## Running
 
@@ -138,5 +166,21 @@ Requires a local PostgreSQL instance reachable at `jdbc:postgresql://localhost:5
 ## Kubernetes
 
 Manifests are provided under [`k8s/`](k8s):
-- `product-service/product-deployment.yaml`, `product-service/product-service.yaml` — Deployment and Service for this application.
-- `postgres/postgres-deployment.yaml`, `postgres/postgres-service.yaml`, `postgres/postgres-init-configmap.yaml` — PostgreSQL Deployment, Service, and schema-init ConfigMap.
+
+- `product-service/product-deployment.yaml`, `product-service/product-service.yaml` — Deployment and Service for this application. Image: `elifcelik49/sm-product-service:latest`. Required environment variables:
+    - `SPRING_PROFILES_ACTIVE=k8s`
+    - `CONFIG_SERVER_URL=http://config-server:8888`
+    - `DB_USERNAME` / `DB_PASSWORD` — injected from the `postgres-secret` Secret
+- `postgres/postgres-deployment.yaml`, `postgres/postgres-service.yaml`, `postgres/postgres-init-configmap.yaml` — PostgreSQL Deployment, Service, and schema-init ConfigMap. Credentials (`database`, `username`, `password`) are also injected from `postgres-secret`.
+
+```bash
+kubectl create secret generic postgres-secret \
+  --from-literal=database=stock_management \
+  --from-literal=username=postgres \
+  --from-literal=password=postgres123
+
+kubectl apply -f k8s/postgres/
+kubectl apply -f k8s/product-service/
+```
+
+On startup, Flyway applies `V1__create_product_table.sql` against the `stock_management` schema (created ahead of time by the Postgres init ConfigMap) before Hibernate validates it — this is what makes `ddl-auto: validate` safe to use in this environment.
