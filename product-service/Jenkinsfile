@@ -1,0 +1,51 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
+        IMAGE_NAME = 'elifcelik49/sm-product-service'
+        IMAGE_TAG = 'latest'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/elifcelik-eva/stock-management.git'
+            }
+        }
+
+        stage('Build JAR') {
+            steps {
+                dir('product-service') {
+                    bat 'mvnw.cmd clean package -DskipTests'
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                bat 'docker logout'
+                bat "docker build -t %IMAGE_NAME%:%IMAGE_TAG% ./product-service"
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                bat "echo %DOCKERHUB_CREDENTIALS_PSW% | docker login -u %DOCKERHUB_CREDENTIALS_USR% --password-stdin"
+                bat "docker push %IMAGE_NAME%:%IMAGE_TAG%"
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                bat "kubectl rollout restart deployment/product-service"
+            }
+        }
+    }
+
+    post {
+        always {
+            bat "docker logout"
+        }
+    }
+}
