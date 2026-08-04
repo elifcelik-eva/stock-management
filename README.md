@@ -159,6 +159,29 @@ curl http://<minikube-url>/api/1.0/product-cache/EN/products/1
 
 The `k8s` Spring profile uses `ddl-auto: validate` for `product-service` — Hibernate never creates or alters tables in this environment. Instead, **Flyway** owns the schema via a versioned migration (`product-service/src/main/resources/db/migration/V1__create_product_table.sql`), applied automatically on startup. See the [`product-service` README](product-service/README.md) for details.
 
+### Data persistence
+
+PostgreSQL is backed by a `PersistentVolumeClaim` (`product-service/k8s/postgres/postgres-pvc.yaml`) rather than an `emptyDir`, so data survives pod deletion/recreation — verified by deleting the running `postgres` pod and confirming previously created products were still present after Kubernetes rescheduled it.
+
+## CI/CD (Jenkins)
+
+Each service has its own declarative **Jenkinsfile** (`<service>/Jenkinsfile`) automating the same build → tag → push → deploy flow that was originally run by hand:
+
+```
+Checkout (Git) → Build JAR (Maven) → Docker Build → Docker Push (Docker Hub) → kubectl rollout restart
+```
+
+- Jenkins pipelines are configured as **"Pipeline script from SCM"**, pointing at each service's `Jenkinsfile` in this repository — the pipeline definition itself is version-controlled, not stored only in the Jenkins UI.
+- Docker Hub credentials are stored as a Jenkins credential (`dockerhub-credentials`) and injected via `credentials()`, never hardcoded in the pipeline; Jenkins automatically masks the value in the console output.
+- Images are pushed to Docker Hub under the `elifcelik49/sm-<service>:latest` naming convention, then Kubernetes picks up the new image via `kubectl rollout restart deployment/<service>`.
+- All four jobs (`config-server-cicd`, `product-service-cicd`, `product-cache-service-cicd`, `spring-cloud-gateway-cicd`) are grouped under a `stock-management` Jenkins folder for organization.
+
+
+  ![Jenkins pipelines](docs/images/jenkins-pipelines.png)
+
+*All four service pipelines running successfully in Jenkins, grouped under the `stock-management` folder.*
+
+
 ## Notes
 
 This project was built as a personal/learning project to practice a microservices architecture (config server, gateway, service discovery via Kubernetes DNS, Feign-based inter-service calls, caching, and Flyway-based schema management) with Spring Cloud, Docker, and Kubernetes.

@@ -159,6 +159,27 @@ curl http://<minikube-url>/api/1.0/product-cache/EN/products/1
 
 `k8s` Spring profili, `product-service` için `ddl-auto: validate` kullanır — Hibernate bu ortamda hiçbir zaman tablo oluşturmaz veya değiştirmez. Bunun yerine şemayı **Flyway**, versiyonlanmış bir migration dosyasıyla (`product-service/src/main/resources/db/migration/V1__create_product_table.sql`) yönetir; bu dosya uygulama her başladığında otomatik olarak uygulanır. Detaylar için [`product-service` README](product-service/README.tr.md) dosyasına bakın.
 
+### Veri kalıcılığı
+
+PostgreSQL, bir `emptyDir` yerine bir `PersistentVolumeClaim` (`product-service/k8s/postgres/postgres-pvc.yaml`) tarafından desteklenir; böylece pod silinip yeniden oluşturulsa bile veri kalıcı kalır — çalışan `postgres` pod'u bilerek silinerek ve Kubernetes onu yeniden zamanladıktan sonra önceden oluşturulan ürünlerin hâlâ orada olduğu doğrulanarak test edilmiştir.
+
+## CI/CD (Jenkins)
+
+Her servisin, başta elle yapılan build → tag → push → deploy akışını otomatikleştiren kendi declarative **Jenkinsfile**'ı (`<servis>/Jenkinsfile`) vardır:
+
+```
+Checkout (Git) → Build JAR (Maven) → Docker Build → Docker Push (Docker Hub) → kubectl rollout restart
+```
+
+- Jenkins pipeline'ları **"Pipeline script from SCM"** olarak yapılandırılmıştır; her servisin bu repodaki `Jenkinsfile`'ını işaret eder — pipeline tanımının kendisi de versiyon kontrollüdür, sadece Jenkins arayüzünde tutulmaz.
+- Docker Hub kimlik bilgileri bir Jenkins credential'ı (`dockerhub-credentials`) olarak saklanır ve `credentials()` ile enjekte edilir; pipeline'a asla hardcode edilmez, Jenkins değeri console çıktısında otomatik olarak maskeler.
+- Image'lar, `elifcelik49/sm-<servis>:latest` isimlendirme kuralıyla Docker Hub'a push edilir, ardından Kubernetes yeni image'ı `kubectl rollout restart deployment/<servis>` ile alır.
+- Dört job'ın hepsi (`config-server-cicd`, `product-service-cicd`, `product-cache-service-cicd`, `spring-cloud-gateway-cicd`) organizasyon için bir `stock-management` Jenkins klasörü altında gruplanmıştır.
+
+![Jenkins pipeline'ları](docs/images/jenkins-pipelines.png)
+
+*Dört servisin pipeline'ı da `stock-management` klasörü altında başarıyla çalışıyor.*
+
 ## Notlar
 
 Bu proje; config server, gateway, Kubernetes DNS üzerinden servis keşfi, Feign tabanlı servisler arası çağrılar, önbellekleme ve Flyway tabanlı şema yönetimi gibi mikroservis mimarisi pratiklerini Spring Cloud, Docker ve Kubernetes ile denemek amacıyla geliştirilmiş kişisel/öğrenme amaçlı bir projedir.
